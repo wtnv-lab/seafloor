@@ -50,39 +50,53 @@ function normalizeLegendDepth(depth) {
   return (depth - legendMinDepth) / (legendMaxDepth - legendMinDepth);
 }
 
-function buildColorRamp() {
-  const ramp = document.createElement("canvas");
-  ramp.width = 100;
-  ramp.height = 15;
+const bathymetrySteps = [
+  { height: maxHeight, color: "#cf7650" },
+  { height: 410.0, color: "#d58356" },
+  { height: 330.0, color: "#dc945e" },
+  { height: 250.0, color: "#e5aa6c" },
+  { height: 180.0, color: "#ecbf7d" },
+  { height: 118.0, color: "#f3d293" },
+  { height: 70.0, color: "#f8dfaa" },
+  { height: 28.0, color: "#fcedd0" },
+  { height: 12.0, color: "#fff2d8" },
+  { height: 6.0, color: "#fff5e2" },
+  { height: 2.0, color: "#fff9ee" },
+  { height: 0.0, color: "#fffaf1" },
+  { height: -2.0, color: "#f7f7e2" },
+  { height: -6.0, color: "#e8f1c5" },
+  { height: -10.0, color: "#d7ef9f" },
+  { height: -25.0, color: "#9fdf95" },
+  { height: -40.0, color: "#63c7a3" },
+  { height: -60.0, color: "#32b6b0" },
+  { height: -90.0, color: "#1f9ac0" },
+  { height: -130.0, color: "#2a78b8" },
+  { height: -180.0, color: "#31539b" },
+  { height: minHeight, color: "#2d356c" },
+];
 
-  const context = ramp.getContext("2d");
-  const gradient = context.createLinearGradient(0, 0, 100, 0);
+const legendSteps = bathymetrySteps.filter((step) => step.height <= 0.0);
 
-  gradient.addColorStop(normalizeHeight(maxHeight), "#cf7650");
-  gradient.addColorStop(normalizeHeight(410.0), "#d58356");
-  gradient.addColorStop(normalizeHeight(330.0), "#dc945e");
-  gradient.addColorStop(normalizeHeight(250.0), "#e5aa6c");
-  gradient.addColorStop(normalizeHeight(180.0), "#ecbf7d");
-  gradient.addColorStop(normalizeHeight(118.0), "#f3d293");
-  gradient.addColorStop(normalizeHeight(70.0), "#f8dfaa");
-  gradient.addColorStop(normalizeHeight(28.0), "#fcedd0");
-  gradient.addColorStop(normalizeHeight(12.0), "#fff2d8");
-  gradient.addColorStop(normalizeHeight(6.0), "#fff5e2");
-  gradient.addColorStop(normalizeHeight(2.0), "#fff9ee");
-  gradient.addColorStop(normalizeHeight(0.0), "#fffaf1");
-  gradient.addColorStop(normalizeHeight(-2.0), "#f7f7e2");
-  gradient.addColorStop(normalizeHeight(-6.0), "#e8f1c5");
-  gradient.addColorStop(normalizeHeight(-10.0), "#d7ef9f");
-  gradient.addColorStop(normalizeHeight(-25.0), "#9fdf95");
-  gradient.addColorStop(normalizeHeight(-40.0), "#63c7a3");
-  gradient.addColorStop(normalizeHeight(-60.0), "#32b6b0");
-  gradient.addColorStop(normalizeHeight(-90.0), "#1f9ac0");
-  gradient.addColorStop(normalizeHeight(-130.0), "#2a78b8");
-  gradient.addColorStop(normalizeHeight(-180.0), "#31539b");
-  gradient.addColorStop(normalizeHeight(minHeight), "#2d356c");
+function fillSmoothRamp(context, width, height, steps, normalizer, isVertical = false) {
+  const gradient = isVertical
+    ? context.createLinearGradient(0, height, 0, 0)
+    : context.createLinearGradient(0, 0, width, 0);
+
+  for (const step of steps) {
+    gradient.addColorStop(normalizer(step.height), step.color);
+  }
 
   context.fillStyle = gradient;
-  context.fillRect(0, 0, ramp.width, ramp.height);
+  context.fillRect(0, 0, width, height);
+}
+
+function buildColorRamp() {
+  const ramp = document.createElement("canvas");
+  ramp.width = 256;
+  ramp.height = 16;
+
+  const context = ramp.getContext("2d");
+  fillSmoothRamp(context, ramp.width, ramp.height, bathymetrySteps, normalizeHeight, false);
 
   return ramp;
 }
@@ -93,22 +107,7 @@ function buildLegendRamp() {
   ramp.height = 180;
 
   const context = ramp.getContext("2d");
-  const gradient = context.createLinearGradient(0, ramp.height, 0, 0);
-
-  gradient.addColorStop(normalizeLegendDepth(minHeight), "#2d356c");
-  gradient.addColorStop(normalizeLegendDepth(-180.0), "#31539b");
-  gradient.addColorStop(normalizeLegendDepth(-130.0), "#2a78b8");
-  gradient.addColorStop(normalizeLegendDepth(-90.0), "#1f9ac0");
-  gradient.addColorStop(normalizeLegendDepth(-60.0), "#32b6b0");
-  gradient.addColorStop(normalizeLegendDepth(-40.0), "#63c7a3");
-  gradient.addColorStop(normalizeLegendDepth(-25.0), "#9fdf95");
-  gradient.addColorStop(normalizeLegendDepth(-10.0), "#d7ef9f");
-  gradient.addColorStop(normalizeLegendDepth(-4.0), "#eef5c8");
-  gradient.addColorStop(normalizeLegendDepth(-1.0), "#fffaf1");
-  gradient.addColorStop(normalizeLegendDepth(0.0), "#fffaf1");
-
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, ramp.width, ramp.height);
+  fillSmoothRamp(context, ramp.width, ramp.height, legendSteps, normalizeLegendDepth, true);
 
   return ramp;
 }
