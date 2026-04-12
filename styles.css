@@ -97,6 +97,7 @@ body {
 }
 
 .navigator-panel,
+.legend-panel,
 .control-panel,
 .camera-panel {
   border-radius: 18px;
@@ -105,6 +106,63 @@ body {
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow: var(--glass-shadow);
+}
+
+.legend-panel {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  z-index: 10;
+  width: 96px;
+  padding: 12px 10px 10px;
+}
+
+.legend-title {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.legend-ramp {
+  margin-top: 8px;
+  width: 18px;
+  height: 180px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    #cd6a4a 0%,
+    #dc8458 8%,
+    #e9a26a 16%,
+    #f0bf7d 24%,
+    #f5d695 32%,
+    #f9e5ad 40%,
+    #fcf2cb 46%,
+    #fff9da 48%,
+    #f7f3b3 50%,
+    #d7ef9f 55%,
+    #9fdf95 62%,
+    #63c7a3 70%,
+    #32b6b0 78%,
+    #1f9ac0 86%,
+    #2a78b8 92%,
+    #31539b 96%,
+    #2d356c 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.legend-scale {
+  position: absolute;
+  top: 32px;
+  left: 40px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 180px;
+  font-size: 0.62rem;
+  color: var(--text);
 }
 
 .navigator-panel {
@@ -315,8 +373,14 @@ body {
     width: 74px;
   }
 
+  .legend-panel {
+    left: 16px;
+    bottom: 16px;
+  }
+
   .control-panel {
     left: 16px;
+    bottom: auto;
     width: min(220px, calc(100vw - 32px));
     min-width: 0;
     height: auto;

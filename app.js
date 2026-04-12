@@ -110,6 +110,72 @@ function updateBathymetryMaterial(material, viewer) {
   uniforms.color = Cesium.Color.fromCssColorString("#23303d").withAlpha(0.42);
 }
 
+function addAisTracks(viewer) {
+  const trackStyle = {
+    clampToGround: false,
+    material: new Cesium.PolylineGlowMaterialProperty({
+      glowPower: 0.18,
+      taperPower: 0.75,
+      color: Cesium.Color.fromCssColorString("#ffd86b").withAlpha(0.95),
+    }),
+    width: 8,
+  };
+
+  const secondaryTrackStyle = {
+    clampToGround: false,
+    material: new Cesium.PolylineGlowMaterialProperty({
+      glowPower: 0.14,
+      taperPower: 0.65,
+      color: Cesium.Color.fromCssColorString("#ff9f6b").withAlpha(0.82),
+    }),
+    width: 6,
+  };
+
+  const aisTracks = [
+    {
+      positions: [
+        56.03, 25.76,
+        56.14, 25.82,
+        56.29, 25.89,
+        56.47, 25.95,
+        56.66, 26.0,
+        56.9, 26.05,
+      ],
+      style: trackStyle,
+    },
+    {
+      positions: [
+        56.95, 25.78,
+        56.77, 25.73,
+        56.57, 25.69,
+        56.36, 25.66,
+        56.17, 25.64,
+        55.99, 25.63,
+      ],
+      style: trackStyle,
+    },
+    {
+      positions: [
+        56.22, 25.72,
+        56.31, 25.78,
+        56.43, 25.84,
+        56.54, 25.91,
+        56.61, 26.0,
+      ],
+      style: secondaryTrackStyle,
+    },
+  ];
+
+  for (const track of aisTracks) {
+    viewer.entities.add({
+      polyline: {
+        positions: Cesium.Cartesian3.fromDegreesArray(track.positions),
+        ...track.style,
+      },
+    });
+  }
+}
+
 function formatNumber(value) {
   return value.toFixed(6);
 }
