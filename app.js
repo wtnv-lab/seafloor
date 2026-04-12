@@ -366,23 +366,27 @@ function installDepthProbe(viewer) {
   const probeEntity = viewer.entities.add({
     position: Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0),
     point: {
-      pixelSize: 10,
-      color: Cesium.Color.fromCssColorString("#fff4c8"),
-      outlineColor: Cesium.Color.fromCssColorString("#183244"),
-      outlineWidth: 2,
+      pixelSize: 12,
+      color: Cesium.Color.fromCssColorString("#a8ecff").withAlpha(0.96),
+      outlineColor: Cesium.Color.fromCssColorString("#0d2332").withAlpha(0.95),
+      outlineWidth: 3,
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
       disableDepthTestDistance: Number.POSITIVE_INFINITY,
     },
     label: {
       text: "",
-      font: '600 13px "Space Grotesk", "Noto Sans JP", sans-serif',
-      fillColor: Cesium.Color.WHITE,
+      font: '700 13px "Space Grotesk", "Noto Sans JP", sans-serif',
+      fillColor: Cesium.Color.fromCssColorString("#dff8ff"),
       showBackground: true,
-      backgroundColor: Cesium.Color.fromCssColorString("#081521").withAlpha(0.78),
-      pixelOffset: new Cesium.Cartesian2(0, -24),
+      backgroundColor: Cesium.Color.fromCssColorString("#0b2030").withAlpha(0.88),
+      pixelOffset: new Cesium.Cartesian2(0, -28),
       horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
       verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      outlineColor: Cesium.Color.fromCssColorString("#07131c").withAlpha(0.9),
+      outlineWidth: 2,
+      eyeOffset: new Cesium.Cartesian3(0, 0, -10),
       disableDepthTestDistance: Number.POSITIVE_INFINITY,
     },
     show: false,
@@ -419,7 +423,7 @@ function installDepthProbe(viewer) {
 
     setStatus("");
 
-    const headline = `Depth ${Math.abs(sampledHeight).toFixed(1)} m`;
+    const headline = `- ${Math.abs(sampledHeight).toFixed(1)} m`;
 
     probeEntity.position = position;
     probeEntity.label.text = headline;
