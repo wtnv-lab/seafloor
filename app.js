@@ -41,6 +41,7 @@ const legendMaxDepth = 0.0;
 const targetFrameRate = 60;
 
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
+updateAppHeight();
 
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -136,6 +137,38 @@ function syncLegend() {
 
 syncLegend();
 window.addEventListener("resize", syncLegend);
+
+function updateAppHeight() {
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  document.documentElement.style.setProperty("--app-height", `${viewportHeight}px`);
+}
+
+function installViewportSync(viewer) {
+  let resizeFrameId = null;
+
+  const sync = () => {
+    updateAppHeight();
+    syncLegend();
+    viewer.resize();
+    viewer.scene.requestRender();
+  };
+
+  const requestSync = () => {
+    if (resizeFrameId !== null) {
+      window.cancelAnimationFrame(resizeFrameId);
+    }
+
+    resizeFrameId = window.requestAnimationFrame(() => {
+      resizeFrameId = null;
+      sync();
+    });
+  };
+
+  requestSync();
+  window.addEventListener("resize", requestSync);
+  window.visualViewport?.addEventListener("resize", requestSync);
+  window.visualViewport?.addEventListener("scroll", requestSync);
+}
 
 function buildBathymetryMaterial(viewer) {
   const material = new Cesium.Material({
@@ -634,6 +667,7 @@ async function createViewer() {
       updateCameraReadout(viewer);
     });
 
+    installViewportSync(viewer);
     installDepthProbe(viewer);
 
     const autoRotateController = createAutoRotateController(viewer);

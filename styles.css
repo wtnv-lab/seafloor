@@ -27,11 +27,13 @@ body {
 
 body {
   min-height: 100vh;
+  min-height: var(--app-height, 100vh);
 }
 
 .viewer-wrap {
   position: relative;
   min-height: 100vh;
+  min-height: var(--app-height, 100vh);
 }
 
 #cesiumContainer {
