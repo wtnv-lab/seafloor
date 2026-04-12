@@ -20,7 +20,6 @@ This is a CesiumJS-based web viewer for exploring the seafloor topography of the
 - [app.js](/Users/wtnv/Repositories/seafloor/app.js): Cesium initialization, rendering logic, camera controls, and UI behavior
 - [styles.css](/Users/wtnv/Repositories/seafloor/styles.css): Glass-style UI, mobile layout, and navigator styling
 - [og-image.png](/Users/wtnv/Repositories/seafloor/og-image.png): Social sharing image
-- [data/crop.kml](/Users/wtnv/Repositories/seafloor/data/crop.kml): Crop extent source used to define the visible region
 
 ## Local Run
 
@@ -45,4 +44,4 @@ The current implementation includes an embedded `Cesium ion` access token, but t
 
 - CesiumJS and bathymetry terrain are loaded over the network.
 - `requestRenderMode` is enabled to reduce rendering load while idle.
-- The visible globe region is limited with a crop rectangle derived from the project extent.
+- The visible globe region is limited with a crop rectangle defined in the application code.
