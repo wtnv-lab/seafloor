@@ -220,6 +220,9 @@ function createAutoRotateController(viewer) {
       lastTimestamp = null;
       viewer.scene.requestRender();
     },
+    isActive() {
+      return isRotating;
+    },
   };
 }
 
@@ -237,6 +240,7 @@ function installNavigator(viewer, autoRotateController) {
   function act(action) {
     switch (action) {
       case "home":
+        autoRotateController.stop();
         flyToPreset(viewer, "hormuz");
         break;
       case "toggleRotate":
