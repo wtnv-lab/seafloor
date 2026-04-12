@@ -6,6 +6,7 @@ const minHeight = -250.0;
 const maxHeight = 480.0;
 const contourLineSpacing = 20.0;
 const initialExaggeration = 10.0;
+const cropKmlUrl = "./data/crop.kml";
 
 const presets = {
   hormuz: {
@@ -166,6 +167,59 @@ function updateBathymetryMaterial(material, viewer) {
   uniforms.width = 1.0;
   uniforms.spacing = contourLineSpacing * viewer.scene.verticalExaggeration;
   uniforms.color = Cesium.Color.fromCssColorString("#23303d").withAlpha(0.42);
+}
+
+function parseKmlCoordinates(kmlText) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(kmlText, "application/xml");
+  const coordinatesNode = xml.querySelector("Polygon outerBoundaryIs LinearRing coordinates");
+
+  if (!coordinatesNode) {
+    throw new Error("KML polygon coordinates not found.");
+  }
+
+  return coordinatesNode.textContent
+    .trim()
+    .split(/\s+/)
+    .map((entry) => entry.split(","))
+    .map(([longitude, latitude]) => ({
+      longitude: Number(longitude),
+      latitude: Number(latitude),
+    }))
+    .filter(
+      (coordinate) =>
+        Number.isFinite(coordinate.longitude) &&
+        Number.isFinite(coordinate.latitude),
+    )
+    .filter((coordinate, index, array) => {
+      if (index === array.length - 1) {
+        const first = array[0];
+        return (
+          coordinate.longitude !== first.longitude ||
+          coordinate.latitude !== first.latitude
+        );
+      }
+
+      return true;
+    });
+}
+
+async function loadCropRectangle() {
+  const response = await fetch(cropKmlUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to load crop KML: ${response.status}`);
+  }
+
+  const polygonCoordinates = parseKmlCoordinates(await response.text());
+  const longitudes = polygonCoordinates.map((coordinate) => coordinate.longitude);
+  const latitudes = polygonCoordinates.map((coordinate) => coordinate.latitude);
+
+  return Cesium.Rectangle.fromDegrees(
+    Math.min(...longitudes),
+    Math.min(...latitudes),
+    Math.max(...longitudes),
+    Math.max(...latitudes),
+  );
 }
 
 function addAisTracks(viewer) {
@@ -471,7 +525,14 @@ async function createViewer() {
     const bathymetryBaseColor = Cesium.Color.fromCssColorString("#102532");
     const bathymetryMaterial = buildBathymetryMaterial(viewer);
 
-    viewer.scene.fog.enabled = false;
+    viewer.scene.backgroundColor = Cesium.Color.BLACK;
+    viewer.scene.fog.enabled = true;
+    viewer.scene.fog.density = 0.00028;
+    viewer.scene.fog.minimumBrightness = 0.2;
+    viewer.scene.skyAtmosphere.show = false;
+    viewer.scene.skyBox.show = false;
+    viewer.scene.sun.show = false;
+    viewer.scene.moon.show = false;
     viewer.scene.globe.showGroundAtmosphere = false;
     viewer.scene.globe.enableLighting = false;
     viewer.scene.globe.maximumScreenSpaceError = 0.45;
@@ -481,6 +542,8 @@ async function createViewer() {
     viewer.targetFrameRate = targetFrameRate;
     viewer.useBrowserRecommendedResolution = true;
     viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 1);
+    updateLoadingProgress(34, "Applying crop extent...");
+    viewer.scene.globe.cartographicLimitRectangle = await loadCropRectangle();
 
     let sawPendingTiles = false;
     viewer.scene.globe.tileLoadProgressEvent.addEventListener((queuedTileCount) => {

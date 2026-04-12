@@ -299,8 +299,8 @@ body {
 }
 
 .zoom-slider {
-  writing-mode: bt-lr;
-  -webkit-appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
   width: 20px;
   height: 92px;
   background: transparent;
