@@ -362,6 +362,74 @@ function getCurrentLookAtTarget(viewer) {
   return scene.globe.pick(ray, scene) ?? Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0);
 }
 
+function installDepthProbe(viewer) {
+  const probeEntity = viewer.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0),
+    point: {
+      pixelSize: 10,
+      color: Cesium.Color.fromCssColorString("#fff4c8"),
+      outlineColor: Cesium.Color.fromCssColorString("#183244"),
+      outlineWidth: 2,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
+    label: {
+      text: "",
+      font: '600 13px "Space Grotesk", "Noto Sans JP", sans-serif',
+      fillColor: Cesium.Color.WHITE,
+      showBackground: true,
+      backgroundColor: Cesium.Color.fromCssColorString("#081521").withAlpha(0.78),
+      pixelOffset: new Cesium.Cartesian2(0, -24),
+      horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
+    show: false,
+  });
+
+  viewer.screenSpaceEventHandler.setInputAction(async (event) => {
+    const ray = viewer.camera.getPickRay(event.position);
+    if (!ray) {
+      return;
+    }
+
+    const position = viewer.scene.globe.pick(ray, viewer.scene);
+    if (!position) {
+      return;
+    }
+
+    const cartographic = Cesium.Cartographic.fromCartesian(position);
+    const [sampled] = await Cesium.sampleTerrainMostDetailed(viewer.terrainProvider, [
+      new Cesium.Cartographic(cartographic.longitude, cartographic.latitude),
+    ]);
+    const sampledHeight = sampled?.height;
+
+    if (!Number.isFinite(sampledHeight)) {
+      setStatus("Depth probe could not read terrain height at this point.", true);
+      return;
+    }
+
+    if (sampledHeight >= 0) {
+      probeEntity.show = false;
+      setStatus("");
+      viewer.scene.requestRender();
+      return;
+    }
+
+    setStatus("");
+
+    const headline = `Depth ${Math.abs(sampledHeight).toFixed(1)} m`;
+
+    probeEntity.position = position;
+    probeEntity.label.text = headline;
+    probeEntity.show = true;
+    viewer.selectedEntity = undefined;
+    viewer.trackedEntity = undefined;
+    viewer.scene.requestRender();
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
 function createAutoRotateController(viewer) {
   const scratchCurrentOffset = new Cesium.Cartesian3();
   let isRotating = false;
@@ -568,6 +636,8 @@ async function createViewer() {
     viewer.camera.changed.addEventListener(() => {
       updateCameraReadout(viewer);
     });
+
+    installDepthProbe(viewer);
 
     const autoRotateController = createAutoRotateController(viewer);
     installNavigator(viewer, autoRotateController);
