@@ -6,7 +6,12 @@ const minHeight = -250.0;
 const maxHeight = 480.0;
 const contourLineSpacing = 20.0;
 const initialExaggeration = 10.0;
-const cropKmlUrl = "./data/crop.kml";
+const cropRectangle = Cesium.Rectangle.fromDegrees(
+  45.2507544701355,
+  16.57902010817656,
+  69.28237866196051,
+  33.61096284000259,
+);
 
 const presets = {
   hormuz: {
@@ -201,24 +206,6 @@ function parseKmlCoordinates(kmlText) {
 
       return true;
     });
-}
-
-async function loadCropRectangle() {
-  const response = await fetch(cropKmlUrl, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Failed to load crop KML: ${response.status}`);
-  }
-
-  const polygonCoordinates = parseKmlCoordinates(await response.text());
-  const longitudes = polygonCoordinates.map((coordinate) => coordinate.longitude);
-  const latitudes = polygonCoordinates.map((coordinate) => coordinate.latitude);
-
-  return Cesium.Rectangle.fromDegrees(
-    Math.min(...longitudes),
-    Math.min(...latitudes),
-    Math.max(...longitudes),
-    Math.max(...latitudes),
-  );
 }
 
 function addAisTracks(viewer) {
@@ -569,12 +556,7 @@ function installNavigator(viewer, autoRotateController) {
 async function createViewer() {
   try {
     updateLoadingProgress(10, "Initializing terrain...");
-    const terrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(
-      BATHYMETRY_ASSET_ID,
-      {
-        requestVertexNormals: true,
-      },
-    );
+    const terrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(BATHYMETRY_ASSET_ID);
     updateLoadingProgress(28, "Creating viewer...");
 
     const viewer = new Cesium.Viewer("cesiumContainer", {
@@ -595,6 +577,7 @@ async function createViewer() {
 
     const bathymetryBaseColor = Cesium.Color.fromCssColorString("#102532");
     const bathymetryMaterial = buildBathymetryMaterial(viewer);
+    setPresetView(viewer, "hormuz");
 
     viewer.scene.backgroundColor = Cesium.Color.BLACK;
     viewer.scene.fog.enabled = true;
@@ -614,7 +597,7 @@ async function createViewer() {
     viewer.useBrowserRecommendedResolution = true;
     viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 1);
     updateLoadingProgress(34, "Applying crop extent...");
-    viewer.scene.globe.cartographicLimitRectangle = await loadCropRectangle();
+    viewer.scene.globe.cartographicLimitRectangle = cropRectangle;
 
     let sawPendingTiles = false;
     viewer.scene.globe.tileLoadProgressEvent.addEventListener((queuedTileCount) => {
@@ -652,7 +635,6 @@ async function createViewer() {
     viewer.scene.canvas.addEventListener("pointerdown", stopRotationOnUserInput);
     viewer.scene.canvas.addEventListener("wheel", stopRotationOnUserInput, { passive: true });
 
-    setPresetView(viewer, "hormuz");
     updateCameraReadout(viewer);
     viewer.scene.requestRender();
 
