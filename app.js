@@ -24,6 +24,7 @@ const exaggerationValue = document.getElementById("exaggerationValue");
 const cameraReadout = document.getElementById("cameraReadout");
 const navButtons = document.querySelectorAll("[data-nav]");
 const zoomSlider = document.getElementById("zoomSlider");
+const targetFrameRate = 60;
 
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 
@@ -68,6 +69,8 @@ function buildColorRamp() {
   return ramp;
 }
 
+const colorRampImage = buildColorRamp();
+
 function buildBathymetryMaterial(viewer) {
   const material = new Cesium.Material({
     fabric: {
@@ -89,8 +92,12 @@ function buildBathymetryMaterial(viewer) {
     translucent: false,
   });
 
+  return material;
+}
+
+function updateBathymetryMaterial(material, viewer) {
   let uniforms = material.materials.elevationRampMaterial.uniforms;
-  uniforms.image = buildColorRamp();
+  uniforms.image = colorRampImage;
   uniforms.minimumHeight = minHeight * viewer.scene.verticalExaggeration;
   uniforms.maximumHeight = maxHeight * viewer.scene.verticalExaggeration;
 
@@ -98,8 +105,6 @@ function buildBathymetryMaterial(viewer) {
   uniforms.width = 1.0;
   uniforms.spacing = contourLineSpacing * viewer.scene.verticalExaggeration;
   uniforms.color = Cesium.Color.fromCssColorString("#23303d").withAlpha(0.42);
-
-  return material;
 }
 
 function formatNumber(value) {
@@ -124,12 +129,12 @@ function updateCameraReadout(viewer) {
     `roll: ${formatNumber(roll)}`;
 }
 
-function applyExaggeration(viewer, value, showingSatellite) {
+function applyExaggeration(viewer, value, showingSatellite, bathymetryMaterial) {
   viewer.scene.verticalExaggeration = value;
   exaggerationValue.textContent = String(value);
 
   if (!showingSatellite) {
-    viewer.scene.globe.material = buildBathymetryMaterial(viewer);
+    updateBathymetryMaterial(bathymetryMaterial, viewer);
   }
 }
 
@@ -143,6 +148,18 @@ function flyToPreset(viewer, presetKey) {
     destination: preset.destination,
     orientation: preset.orientation,
     duration: 1.8,
+  });
+}
+
+function setPresetView(viewer, presetKey) {
+  const preset = presets[presetKey];
+  if (!preset) {
+    return;
+  }
+
+  viewer.camera.setView({
+    destination: preset.destination,
+    orientation: preset.orientation,
   });
 }
 
@@ -312,18 +329,23 @@ async function createViewer() {
     });
 
     const bathymetryBaseColor = Cesium.Color.fromCssColorString("#102532");
+    const bathymetryMaterial = buildBathymetryMaterial(viewer);
 
     viewer.scene.fog.enabled = false;
     viewer.scene.globe.showGroundAtmosphere = false;
     viewer.scene.globe.enableLighting = false;
-    viewer.scene.globe.maximumScreenSpaceError = 0.25;
+    viewer.scene.globe.maximumScreenSpaceError = 0.45;
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
     viewer.scene.globe.baseColor = bathymetryBaseColor;
+    viewer.scene.globe.material = bathymetryMaterial;
+    viewer.targetFrameRate = targetFrameRate;
+    viewer.useBrowserRecommendedResolution = true;
+    viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 1);
 
     exaggerationSlider.value = String(initialExaggeration);
-    applyExaggeration(viewer, initialExaggeration, false);
+    applyExaggeration(viewer, initialExaggeration, false, bathymetryMaterial);
     exaggerationSlider.addEventListener("input", () => {
-      applyExaggeration(viewer, Number(exaggerationSlider.value), false);
+      applyExaggeration(viewer, Number(exaggerationSlider.value), false, bathymetryMaterial);
       viewer.scene.requestRender();
     });
 
@@ -340,7 +362,7 @@ async function createViewer() {
     viewer.scene.canvas.addEventListener("pointerdown", stopRotationOnUserInput);
     viewer.scene.canvas.addEventListener("wheel", stopRotationOnUserInput, { passive: true });
 
-    flyToPreset(viewer, "hormuz");
+    setPresetView(viewer, "hormuz");
     updateCameraReadout(viewer);
     viewer.scene.requestRender();
 
