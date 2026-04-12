@@ -380,6 +380,16 @@ function installDepthProbe(viewer) {
   });
 
   viewer.screenSpaceEventHandler.setInputAction(async (event) => {
+    const picked = viewer.scene.pick(event.position);
+    if (Cesium.defined(picked) && picked.id === probeEntity) {
+      probeEntity.show = false;
+      viewer.selectedEntity = undefined;
+      viewer.trackedEntity = undefined;
+      setStatus("");
+      viewer.scene.requestRender();
+      return;
+    }
+
     const ray = viewer.camera.getPickRay(event.position);
     if (!ray) {
       return;
