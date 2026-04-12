@@ -24,6 +24,9 @@ const exaggerationValue = document.getElementById("exaggerationValue");
 const cameraReadout = document.getElementById("cameraReadout");
 const navButtons = document.querySelectorAll("[data-nav]");
 const zoomSlider = document.getElementById("zoomSlider");
+const loadingOverlay = document.getElementById("loadingOverlay");
+const loadingBarFill = document.getElementById("loadingBarFill");
+const loadingLabel = document.getElementById("loadingLabel");
 const targetFrameRate = 60;
 
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
@@ -109,6 +112,17 @@ function updateBathymetryMaterial(material, viewer) {
 
 function formatNumber(value) {
   return value.toFixed(6);
+}
+
+function updateLoadingProgress(progress, label) {
+  loadingBarFill.style.width = `${Math.max(8, Math.min(100, progress))}%`;
+  if (label) {
+    loadingLabel.textContent = label;
+  }
+}
+
+function hideLoadingOverlay() {
+  loadingOverlay.classList.add("is-hidden");
 }
 
 function updateCameraReadout(viewer) {
@@ -305,12 +319,14 @@ function installNavigator(viewer, autoRotateController) {
 
 async function createViewer() {
   try {
+    updateLoadingProgress(10, "Initializing terrain...");
     const terrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(
       BATHYMETRY_ASSET_ID,
       {
         requestVertexNormals: true,
       },
     );
+    updateLoadingProgress(28, "Creating viewer...");
 
     const viewer = new Cesium.Viewer("cesiumContainer", {
       terrainProvider,
@@ -342,6 +358,20 @@ async function createViewer() {
     viewer.useBrowserRecommendedResolution = true;
     viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 1);
 
+    let sawPendingTiles = false;
+    viewer.scene.globe.tileLoadProgressEvent.addEventListener((queuedTileCount) => {
+      if (queuedTileCount > 0) {
+        sawPendingTiles = true;
+        const normalized = Math.max(0, 1 - Math.min(queuedTileCount, 24) / 24);
+        updateLoadingProgress(30 + normalized * 60, `Loading terrain tiles... ${queuedTileCount}`);
+      } else if (sawPendingTiles) {
+        updateLoadingProgress(100, "Ready");
+        window.setTimeout(() => {
+          hideLoadingOverlay();
+        }, 180);
+      }
+    });
+
     exaggerationSlider.value = String(initialExaggeration);
     applyExaggeration(viewer, initialExaggeration, false, bathymetryMaterial);
     exaggerationSlider.addEventListener("input", () => {
@@ -365,6 +395,13 @@ async function createViewer() {
     setPresetView(viewer, "hormuz");
     updateCameraReadout(viewer);
     viewer.scene.requestRender();
+
+    window.setTimeout(() => {
+      if (!sawPendingTiles) {
+        updateLoadingProgress(100, "Ready");
+        hideLoadingOverlay();
+      }
+    }, 400);
 
     return viewer;
   } catch (error) {
