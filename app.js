@@ -12,6 +12,10 @@ const cropRectangle = Cesium.Rectangle.fromDegrees(
   69.28237866196051,
   33.61096284000259,
 );
+const defaultLookAtTarget = Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0);
+const loadingFallbackDelayMs = 400;
+const loadingOverlayDismissDelayMs = 180;
+const tileQueueNormalizationCount = 24;
 
 const presets = {
   hormuz: {
@@ -43,6 +47,7 @@ const targetFrameRate = 60;
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 updateAppHeight();
 
+// Shared UI helper for transient status text.
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
   statusMessage.classList.toggle("error", isError);
@@ -120,10 +125,10 @@ function buildLegendRamp() {
 
 const colorRampImage = buildColorRamp();
 const legendRampImage = buildLegendRamp();
+const legendRampDataUrl = legendRampImage.toDataURL("image/png");
 
 function syncLegend() {
-  const rampDataUrl = legendRampImage.toDataURL("image/png");
-  legendRamp.style.backgroundImage = `url(${rampDataUrl})`;
+  legendRamp.style.backgroundImage = `url(${legendRampDataUrl})`;
 
   const rampHeight = legendRamp.clientHeight;
   const placeMarker = (depth) => `${(1 - normalizeLegendDepth(depth)) * rampHeight}px`;
@@ -138,6 +143,7 @@ function syncLegend() {
 syncLegend();
 window.addEventListener("resize", syncLegend);
 
+// Mobile in-app browsers often report a visual viewport shorter than 100vh.
 function updateAppHeight() {
   const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
   document.documentElement.style.setProperty("--app-height", `${viewportHeight}px`);
@@ -170,6 +176,7 @@ function installViewportSync(viewer) {
   window.visualViewport?.addEventListener("scroll", requestSync);
 }
 
+// Combine elevation ramp shading with contour lines on the globe surface.
 function buildBathymetryMaterial(viewer) {
   const material = new Cesium.Material({
     fabric: {
@@ -206,107 +213,6 @@ function updateBathymetryMaterial(material, viewer) {
   uniforms.color = Cesium.Color.fromCssColorString("#23303d").withAlpha(0.42);
 }
 
-function parseKmlCoordinates(kmlText) {
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(kmlText, "application/xml");
-  const coordinatesNode = xml.querySelector("Polygon outerBoundaryIs LinearRing coordinates");
-
-  if (!coordinatesNode) {
-    throw new Error("KML polygon coordinates not found.");
-  }
-
-  return coordinatesNode.textContent
-    .trim()
-    .split(/\s+/)
-    .map((entry) => entry.split(","))
-    .map(([longitude, latitude]) => ({
-      longitude: Number(longitude),
-      latitude: Number(latitude),
-    }))
-    .filter(
-      (coordinate) =>
-        Number.isFinite(coordinate.longitude) &&
-        Number.isFinite(coordinate.latitude),
-    )
-    .filter((coordinate, index, array) => {
-      if (index === array.length - 1) {
-        const first = array[0];
-        return (
-          coordinate.longitude !== first.longitude ||
-          coordinate.latitude !== first.latitude
-        );
-      }
-
-      return true;
-    });
-}
-
-function addAisTracks(viewer) {
-  const trackStyle = {
-    clampToGround: false,
-    material: new Cesium.PolylineGlowMaterialProperty({
-      glowPower: 0.18,
-      taperPower: 0.75,
-      color: Cesium.Color.fromCssColorString("#ffd86b").withAlpha(0.95),
-    }),
-    width: 8,
-  };
-
-  const secondaryTrackStyle = {
-    clampToGround: false,
-    material: new Cesium.PolylineGlowMaterialProperty({
-      glowPower: 0.14,
-      taperPower: 0.65,
-      color: Cesium.Color.fromCssColorString("#ff9f6b").withAlpha(0.82),
-    }),
-    width: 6,
-  };
-
-  const aisTracks = [
-    {
-      positions: [
-        56.03, 25.76,
-        56.14, 25.82,
-        56.29, 25.89,
-        56.47, 25.95,
-        56.66, 26.0,
-        56.9, 26.05,
-      ],
-      style: trackStyle,
-    },
-    {
-      positions: [
-        56.95, 25.78,
-        56.77, 25.73,
-        56.57, 25.69,
-        56.36, 25.66,
-        56.17, 25.64,
-        55.99, 25.63,
-      ],
-      style: trackStyle,
-    },
-    {
-      positions: [
-        56.22, 25.72,
-        56.31, 25.78,
-        56.43, 25.84,
-        56.54, 25.91,
-        56.61, 26.0,
-      ],
-      style: secondaryTrackStyle,
-    },
-  ];
-
-  for (const track of aisTracks) {
-    viewer.entities.add({
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArray(track.positions),
-        ...track.style,
-      },
-    });
-  }
-}
-
 function formatNumber(value) {
   return value.toFixed(6);
 }
@@ -340,6 +246,7 @@ function updateCameraReadout(viewer) {
     `roll: ${formatNumber(roll)}`;
 }
 
+// Terrain exaggeration affects both geometry and the contour spacing.
 function applyExaggeration(viewer, value, showingSatellite, bathymetryMaterial) {
   viewer.scene.verticalExaggeration = value;
   exaggerationValue.textContent = String(value);
@@ -379,9 +286,11 @@ function getCurrentLookAtTarget(viewer) {
   const canvas = scene.canvas;
   const center = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
   const ray = viewer.camera.getPickRay(center);
-  return scene.globe.pick(ray, scene) ?? Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0);
+  return scene.globe.pick(ray, scene) ?? defaultLookAtTarget;
 }
 
+// Depth probe uses terrain sampling instead of rendered height so labels stay accurate
+// even when vertical exaggeration is increased.
 function installDepthProbe(viewer) {
   const probeEntity = viewer.entities.add({
     position: Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0),
@@ -440,7 +349,7 @@ function installDepthProbe(viewer) {
     const sampledHeight = sampled?.height;
 
     if (!Number.isFinite(sampledHeight)) {
-      setStatus("Depth probe could not read terrain height at this point.", true);
+      setStatus("The depth probe could not read terrain height at this point.", true);
       return;
     }
 
@@ -464,10 +373,11 @@ function installDepthProbe(viewer) {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 }
 
+// Auto-rotation orbits around the current look-at target so it works from any user-picked view.
 function createAutoRotateController(viewer) {
   const scratchCurrentOffset = new Cesium.Cartesian3();
   let isRotating = false;
-  let rotateCenter = Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0);
+  let rotateCenter = defaultLookAtTarget;
   let radius = 140000.0;
   let heading = Cesium.Math.toRadians(14.428275);
   let pitch = Cesium.Math.toRadians(-52.54815);
@@ -536,6 +446,7 @@ function createAutoRotateController(viewer) {
   };
 }
 
+// The zoom control is inverted intentionally so the top of the slider means zoom in.
 function installNavigator(viewer, autoRotateController) {
   const zoomAmount = 12000.0;
   const minZoomHeight = 20000.0;
@@ -596,6 +507,27 @@ function installNavigator(viewer, autoRotateController) {
   syncZoomSlider();
 }
 
+function applySceneAppearance(viewer, bathymetryMaterial, bathymetryBaseColor) {
+  viewer.scene.backgroundColor = Cesium.Color.BLACK;
+  viewer.scene.fog.enabled = true;
+  viewer.scene.fog.density = 0.00028;
+  viewer.scene.fog.minimumBrightness = 0.2;
+  viewer.scene.skyAtmosphere.show = false;
+  viewer.scene.skyBox.show = false;
+  viewer.scene.sun.show = false;
+  viewer.scene.moon.show = false;
+  viewer.scene.globe.showGroundAtmosphere = false;
+  viewer.scene.globe.enableLighting = false;
+  viewer.scene.globe.maximumScreenSpaceError = 0.45;
+  viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
+  viewer.scene.globe.baseColor = bathymetryBaseColor;
+  viewer.scene.globe.material = bathymetryMaterial;
+  viewer.scene.globe.cartographicLimitRectangle = cropRectangle;
+  viewer.targetFrameRate = targetFrameRate;
+  viewer.useBrowserRecommendedResolution = true;
+  viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 1);
+}
+
 async function createViewer() {
   try {
     updateLoadingProgress(10, "Initializing terrain...");
@@ -621,38 +553,23 @@ async function createViewer() {
     const bathymetryBaseColor = Cesium.Color.fromCssColorString("#102532");
     const bathymetryMaterial = buildBathymetryMaterial(viewer);
     setPresetView(viewer, "hormuz");
-
-    viewer.scene.backgroundColor = Cesium.Color.BLACK;
-    viewer.scene.fog.enabled = true;
-    viewer.scene.fog.density = 0.00028;
-    viewer.scene.fog.minimumBrightness = 0.2;
-    viewer.scene.skyAtmosphere.show = false;
-    viewer.scene.skyBox.show = false;
-    viewer.scene.sun.show = false;
-    viewer.scene.moon.show = false;
-    viewer.scene.globe.showGroundAtmosphere = false;
-    viewer.scene.globe.enableLighting = false;
-    viewer.scene.globe.maximumScreenSpaceError = 0.45;
-    viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
-    viewer.scene.globe.baseColor = bathymetryBaseColor;
-    viewer.scene.globe.material = bathymetryMaterial;
-    viewer.targetFrameRate = targetFrameRate;
-    viewer.useBrowserRecommendedResolution = true;
-    viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 1);
+    applySceneAppearance(viewer, bathymetryMaterial, bathymetryBaseColor);
     updateLoadingProgress(34, "Applying crop extent...");
-    viewer.scene.globe.cartographicLimitRectangle = cropRectangle;
 
     let sawPendingTiles = false;
     viewer.scene.globe.tileLoadProgressEvent.addEventListener((queuedTileCount) => {
       if (queuedTileCount > 0) {
         sawPendingTiles = true;
-        const normalized = Math.max(0, 1 - Math.min(queuedTileCount, 24) / 24);
+        const normalized = Math.max(
+          0,
+          1 - Math.min(queuedTileCount, tileQueueNormalizationCount) / tileQueueNormalizationCount,
+        );
         updateLoadingProgress(30 + normalized * 60, `Loading terrain tiles... ${queuedTileCount}`);
       } else if (sawPendingTiles) {
         updateLoadingProgress(100, "Ready");
         window.setTimeout(() => {
           hideLoadingOverlay();
-        }, 180);
+        }, loadingOverlayDismissDelayMs);
       }
     });
 
@@ -687,12 +604,12 @@ async function createViewer() {
         updateLoadingProgress(100, "Ready");
         hideLoadingOverlay();
       }
-    }, 400);
+    }, loadingFallbackDelayMs);
 
     return viewer;
   } catch (error) {
     console.error(error);
-    setStatus("Bathymetry の初期化に失敗しました。トークンまたは Cesium 読み込みを確認してください。", true);
+    setStatus("Failed to initialize bathymetry. Check the Cesium load and token settings.", true);
     throw error;
   }
 }
