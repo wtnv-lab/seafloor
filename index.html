@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seafloor Explorer</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cesium.com/downloads/cesiumjs/releases/1.140/Build/Cesium/Widgets/widgets.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="viewer-wrap">
+      <div id="cesiumContainer"></div>
+      <div class="control-panel control-panel-top">
+        <div class="slider-header">
+          <label class="slider-label" for="exaggerationSlider">Exaggeration</label>
+          <span class="slider-inline-value"><span id="exaggerationValue">10</span>x</span>
+        </div>
+        <input id="exaggerationSlider" type="range" min="1" max="20" step="1" value="10" />
+        <p id="statusMessage" class="status"></p>
+      </div>
+      <div class="navigator-panel">
+        <div class="nav-title">View</div>
+        <button class="nav-icon-button nav-home-icon" data-nav="home" type="button" aria-label="Home"></button>
+        <button class="nav-icon-button nav-rotate-icon" data-nav="toggleRotate" type="button" aria-label="Toggle auto rotate"></button>
+        <div class="nav-zoom">
+          <button class="zoom-button" data-nav="zoomIn" type="button" aria-label="Zoom in">+</button>
+          <input id="zoomSlider" class="zoom-slider" type="range" min="20000" max="180000" step="500" value="92729" aria-label="Zoom" />
+          <button class="zoom-button" data-nav="zoomOut" type="button" aria-label="Zoom out">-</button>
+        </div>
+        <div class="nav-caption">Zoom</div>
+      </div>
+      <div class="camera-panel">
+        <div class="camera-title">Camera</div>
+        <pre id="cameraReadout" class="camera-readout">loading...</pre>
+      </div>
+    </main>
+
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.140/Build/Cesium/Cesium.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
