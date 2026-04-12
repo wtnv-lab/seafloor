@@ -124,32 +124,33 @@ body {
   color: var(--muted);
 }
 
-.legend-ramp {
+.legend-ramp-wrap {
+  position: relative;
   margin-top: 8px;
   width: 18px;
   height: 180px;
-  border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    #cd6a4a 0%,
-    #dc8458 8%,
-    #e9a26a 16%,
-    #f0bf7d 24%,
-    #f5d695 32%,
-    #f9e5ad 40%,
-    #fcf2cb 46%,
-    #fff9da 48%,
-    #f7f3b3 50%,
-    #d7ef9f 55%,
-    #9fdf95 62%,
-    #63c7a3 70%,
-    #32b6b0 78%,
-    #1f9ac0 86%,
-    #2a78b8 92%,
-    #31539b 96%,
-    #2d356c 100%
-  );
+}
+
+.legend-ramp {
+  width: 18px;
+  height: 180px;
+  border-radius: 0;
+  background-color: rgba(255, 255, 255, 0.08);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.legend-sea-level {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.42);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .legend-scale {
@@ -157,12 +158,22 @@ body {
   top: 32px;
   left: 40px;
   right: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
   height: 180px;
   font-size: 0.62rem;
   color: var(--text);
+}
+
+.legend-marker {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.legend-marker-sea-level {
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.28);
 }
 
 .navigator-panel {

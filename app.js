@@ -3,7 +3,7 @@ const CESIUM_ION_TOKEN =
 
 const BATHYMETRY_ASSET_ID = 2426648;
 const minHeight = -250.0;
-const maxHeight = 120.0;
+const maxHeight = 480.0;
 const contourLineSpacing = 20.0;
 const initialExaggeration = 10.0;
 
@@ -27,6 +27,11 @@ const zoomSlider = document.getElementById("zoomSlider");
 const loadingOverlay = document.getElementById("loadingOverlay");
 const loadingBarFill = document.getElementById("loadingBarFill");
 const loadingLabel = document.getElementById("loadingLabel");
+const legendRamp = document.getElementById("legendRamp");
+const legendSeaLevel = document.getElementById("legendSeaLevel");
+const legendMarkers = document.querySelectorAll(".legend-marker");
+const legendMinDepth = minHeight;
+const legendMaxDepth = 0.0;
 const targetFrameRate = 60;
 
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
@@ -40,6 +45,10 @@ function normalizeHeight(height) {
   return (height - minHeight) / (maxHeight - minHeight);
 }
 
+function normalizeLegendDepth(depth) {
+  return (depth - legendMinDepth) / (legendMaxDepth - legendMinDepth);
+}
+
 function buildColorRamp() {
   const ramp = document.createElement("canvas");
   ramp.width = 100;
@@ -48,15 +57,20 @@ function buildColorRamp() {
   const context = ramp.getContext("2d");
   const gradient = context.createLinearGradient(0, 0, 100, 0);
 
-  gradient.addColorStop(normalizeHeight(maxHeight), "#cd6a4a");
-  gradient.addColorStop(normalizeHeight(110.0), "#dc8458");
-  gradient.addColorStop(normalizeHeight(92.0), "#e9a26a");
-  gradient.addColorStop(normalizeHeight(72.0), "#f0bf7d");
-  gradient.addColorStop(normalizeHeight(50.0), "#f5d695");
-  gradient.addColorStop(normalizeHeight(28.0), "#f9e5ad");
-  gradient.addColorStop(normalizeHeight(12.0), "#fcf2cb");
-  gradient.addColorStop(normalizeHeight(10.0), "#fff9da");
-  gradient.addColorStop(normalizeHeight(0.0), "#f7f3b3");
+  gradient.addColorStop(normalizeHeight(maxHeight), "#cf7650");
+  gradient.addColorStop(normalizeHeight(410.0), "#d58356");
+  gradient.addColorStop(normalizeHeight(330.0), "#dc945e");
+  gradient.addColorStop(normalizeHeight(250.0), "#e5aa6c");
+  gradient.addColorStop(normalizeHeight(180.0), "#ecbf7d");
+  gradient.addColorStop(normalizeHeight(118.0), "#f3d293");
+  gradient.addColorStop(normalizeHeight(70.0), "#f8dfaa");
+  gradient.addColorStop(normalizeHeight(28.0), "#fcedd0");
+  gradient.addColorStop(normalizeHeight(12.0), "#fff2d8");
+  gradient.addColorStop(normalizeHeight(6.0), "#fff5e2");
+  gradient.addColorStop(normalizeHeight(2.0), "#fff9ee");
+  gradient.addColorStop(normalizeHeight(0.0), "#fffaf1");
+  gradient.addColorStop(normalizeHeight(-2.0), "#f7f7e2");
+  gradient.addColorStop(normalizeHeight(-6.0), "#e8f1c5");
   gradient.addColorStop(normalizeHeight(-10.0), "#d7ef9f");
   gradient.addColorStop(normalizeHeight(-25.0), "#9fdf95");
   gradient.addColorStop(normalizeHeight(-40.0), "#63c7a3");
@@ -72,7 +86,51 @@ function buildColorRamp() {
   return ramp;
 }
 
+function buildLegendRamp() {
+  const ramp = document.createElement("canvas");
+  ramp.width = 18;
+  ramp.height = 180;
+
+  const context = ramp.getContext("2d");
+  const gradient = context.createLinearGradient(0, ramp.height, 0, 0);
+
+  gradient.addColorStop(normalizeLegendDepth(minHeight), "#2d356c");
+  gradient.addColorStop(normalizeLegendDepth(-180.0), "#31539b");
+  gradient.addColorStop(normalizeLegendDepth(-130.0), "#2a78b8");
+  gradient.addColorStop(normalizeLegendDepth(-90.0), "#1f9ac0");
+  gradient.addColorStop(normalizeLegendDepth(-60.0), "#32b6b0");
+  gradient.addColorStop(normalizeLegendDepth(-40.0), "#63c7a3");
+  gradient.addColorStop(normalizeLegendDepth(-25.0), "#9fdf95");
+  gradient.addColorStop(normalizeLegendDepth(-10.0), "#d7ef9f");
+  gradient.addColorStop(normalizeLegendDepth(-4.0), "#eef5c8");
+  gradient.addColorStop(normalizeLegendDepth(-1.0), "#fffaf1");
+  gradient.addColorStop(normalizeLegendDepth(0.0), "#fffaf1");
+
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, ramp.width, ramp.height);
+
+  return ramp;
+}
+
 const colorRampImage = buildColorRamp();
+const legendRampImage = buildLegendRamp();
+
+function syncLegend() {
+  const rampDataUrl = legendRampImage.toDataURL("image/png");
+  legendRamp.style.backgroundImage = `url(${rampDataUrl})`;
+
+  const rampHeight = legendRamp.clientHeight;
+  const placeMarker = (depth) => `${(1 - normalizeLegendDepth(depth)) * rampHeight}px`;
+
+  legendSeaLevel.style.top = placeMarker(0);
+
+  for (const marker of legendMarkers) {
+    marker.style.top = placeMarker(Number(marker.dataset.depth));
+  }
+}
+
+syncLegend();
+window.addEventListener("resize", syncLegend);
 
 function buildBathymetryMaterial(viewer) {
   const material = new Cesium.Material({

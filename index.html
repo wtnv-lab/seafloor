@@ -72,14 +72,16 @@
       </div>
       <div class="legend-panel">
         <div class="legend-title">Depth</div>
-        <div class="legend-ramp"></div>
+        <div class="legend-ramp-wrap">
+          <div id="legendRamp" class="legend-ramp"></div>
+          <div id="legendSeaLevel" class="legend-sea-level"></div>
+        </div>
         <div class="legend-scale">
-          <span>+120m</span>
-          <span>0m</span>
-          <span>-50m</span>
-          <span>-100m</span>
-          <span>-150m</span>
-          <span>-250m</span>
+          <span class="legend-marker legend-marker-sea-level" data-depth="0">0m</span>
+          <span class="legend-marker" data-depth="-50">-50m</span>
+          <span class="legend-marker" data-depth="-100">-100m</span>
+          <span class="legend-marker" data-depth="-150">-150m</span>
+          <span class="legend-marker" data-depth="-250">-250m</span>
         </div>
       </div>
       <div class="control-panel control-panel-top">
