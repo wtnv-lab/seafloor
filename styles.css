@@ -60,6 +60,25 @@ body {
   pointer-events: none;
 }
 
+.loading-overlay.is-background {
+  inset: auto 12px 32px auto;
+  max-width: calc(100vw - 112px);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+
+.loading-overlay.is-background .loading-card {
+  width: 260px;
+  max-width: 100%;
+  padding: 12px;
+}
+
+.loading-overlay.is-background .loading-title {
+  display: none;
+}
+
 .loading-card {
   width: min(340px, calc(100vw - 40px));
   padding: 18px 18px 16px;
@@ -90,6 +109,22 @@ body {
   border-radius: inherit;
   background: linear-gradient(90deg, #73cfff, #b6edff);
   transition: width 180ms ease;
+}
+
+.loading-overlay.is-indeterminate .loading-bar-fill {
+  width: 35% !important;
+  animation: loading-sweep 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes loading-sweep {
+  from { transform: translateX(0); }
+  to { transform: translateX(185%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay.is-indeterminate .loading-bar-fill {
+    animation: none;
+  }
 }
 
 .loading-label {
@@ -357,6 +392,11 @@ body {
 
 .status.error {
   color: var(--danger);
+}
+
+.status:not(:empty) {
+  display: block;
+  margin-top: 8px;
 }
 
 .camera-panel {

@@ -1,5 +1,8 @@
+import { watchTerrainLoading } from "./terrain-loading.js";
+
+// Public-client token: assets:read only, restricted to bathymetry and approved URLs.
 const CESIUM_ION_TOKEN =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImZJbnpNc2hIaDFhS3YzSlAiLCJqdGkiOiI2MWQxZDNlZC0xNzY1LTRmYzctYmY2Zi05YjZlYmI2YjI2ZGUiLCJpZCI6ODM3NDEsInN1YiI6Imh3dG52MjAyMiIsImlzcyI6Imh0dHBzOi8vYXBpLmNlc2l1bS5jb20iLCJhdWQiOiJBcmNoaXZlcyBTZXJpZXMiLCJpYXQiOjE3OTI3NDA3MDd9._022zY-PytdQeN3CyEHm1enSIN3j59s-_u9FVGmYiE8";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IllUZjBYSDhnNEY4RHNscUciLCJqdGkiOiI2NGJjMTZlNi03NWQzLTRkMDktYWM2MS0xZDU3ODcxMDVlYmIiLCJpZCI6ODM3NDEsInN1YiI6Imh3dG52MjAyMiIsImlzcyI6Imh0dHBzOi8vYXBpLmNlc2l1bS5jb20iLCJhdWQiOiJTZWFmbG9vciBwdWJsaWMgdGVycmFpbiB2aWV3ZXIiLCJpYXQiOjE3OTMxNjQ3NjR9.h3FXByCSARbijj_XI21iQnqHak4qV9mvPp15B8lLWf4";
 
 const BATHYMETRY_ASSET_ID = 2426648;
 const minHeight = -250.0;
@@ -13,9 +16,8 @@ const cropRectangle = Cesium.Rectangle.fromDegrees(
   33.61096284000259,
 );
 const defaultLookAtTarget = Cesium.Cartesian3.fromDegrees(56.318238, 26.630442, 0.0);
-const loadingFallbackDelayMs = 400;
-const loadingOverlayDismissDelayMs = 180;
-const tileQueueNormalizationCount = 24;
+const initialTerrainScreenSpaceError = 2.0;
+const detailedTerrainScreenSpaceError = 0.45;
 
 const presets = {
   hormuz: {
@@ -225,7 +227,42 @@ function updateLoadingProgress(progress, label) {
 }
 
 function hideLoadingOverlay() {
+  loadingOverlay.classList.remove("is-indeterminate");
   loadingOverlay.classList.add("is-hidden");
+}
+
+function installTerrainLoading(viewer) {
+  const center = new Cesium.Cartesian2();
+  const intersection = new Cesium.Cartesian3();
+  return watchTerrainLoading({
+    scene: viewer.scene,
+    hasVisibleTerrain() {
+      const canvas = viewer.scene.canvas;
+      center.x = canvas.clientWidth / 2;
+      center.y = canvas.clientHeight / 2;
+      const ray = viewer.camera.getPickRay(center);
+      return Boolean(ray && viewer.scene.globe.pick(ray, viewer.scene, intersection));
+    },
+    onChange({ phase }) {
+      if (phase === "ready") {
+        updateLoadingProgress(100, "Ready");
+        hideLoadingOverlay();
+        return;
+      }
+
+      // Release the view as soon as terrain is visible, while fine detail streams in.
+      loadingOverlay.classList.toggle("is-background", phase !== "loading");
+      loadingOverlay.classList.add("is-indeterminate");
+      if (phase === "refining") {
+        viewer.scene.globe.maximumScreenSpaceError = detailedTerrainScreenSpaceError;
+        loadingLabel.textContent = "Refining terrain...";
+      } else if (phase === "slow") {
+        loadingLabel.textContent = "Still loading terrain. You can move the view.";
+      } else {
+        loadingLabel.textContent = "Loading terrain...";
+      }
+    },
+  });
 }
 
 function updateCameraReadout(viewer) {
@@ -518,7 +555,7 @@ function applySceneAppearance(viewer, bathymetryMaterial, bathymetryBaseColor) {
   viewer.scene.moon.show = false;
   viewer.scene.globe.showGroundAtmosphere = false;
   viewer.scene.globe.enableLighting = false;
-  viewer.scene.globe.maximumScreenSpaceError = 0.45;
+  viewer.scene.globe.maximumScreenSpaceError = initialTerrainScreenSpaceError;
   viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
   viewer.scene.globe.baseColor = bathymetryBaseColor;
   viewer.scene.globe.material = bathymetryMaterial;
@@ -529,6 +566,7 @@ function applySceneAppearance(viewer, bathymetryMaterial, bathymetryBaseColor) {
 }
 
 async function createViewer() {
+  let stopTerrainLoading;
   try {
     updateLoadingProgress(10, "Initializing terrain...");
     const terrainProvider = await Cesium.CesiumTerrainProvider.fromIonAssetId(BATHYMETRY_ASSET_ID);
@@ -537,6 +575,8 @@ async function createViewer() {
     const viewer = new Cesium.Viewer("cesiumContainer", {
       terrainProvider,
       animation: false,
+      // The elevation material supplies the surface color; no satellite imagery is needed.
+      baseLayer: false,
       baseLayerPicker: false,
       fullscreenButton: false,
       geocoder: false,
@@ -555,23 +595,6 @@ async function createViewer() {
     setPresetView(viewer, "hormuz");
     applySceneAppearance(viewer, bathymetryMaterial, bathymetryBaseColor);
     updateLoadingProgress(34, "Applying crop extent...");
-
-    let sawPendingTiles = false;
-    viewer.scene.globe.tileLoadProgressEvent.addEventListener((queuedTileCount) => {
-      if (queuedTileCount > 0) {
-        sawPendingTiles = true;
-        const normalized = Math.max(
-          0,
-          1 - Math.min(queuedTileCount, tileQueueNormalizationCount) / tileQueueNormalizationCount,
-        );
-        updateLoadingProgress(30 + normalized * 60, `Loading terrain tiles... ${queuedTileCount}`);
-      } else if (sawPendingTiles) {
-        updateLoadingProgress(100, "Ready");
-        window.setTimeout(() => {
-          hideLoadingOverlay();
-        }, loadingOverlayDismissDelayMs);
-      }
-    });
 
     exaggerationSlider.value = String(initialExaggeration);
     applyExaggeration(viewer, initialExaggeration, false, bathymetryMaterial);
@@ -597,20 +620,15 @@ async function createViewer() {
     viewer.scene.canvas.addEventListener("wheel", stopRotationOnUserInput, { passive: true });
 
     updateCameraReadout(viewer);
+    stopTerrainLoading = installTerrainLoading(viewer);
     viewer.scene.requestRender();
-
-    window.setTimeout(() => {
-      if (!sawPendingTiles) {
-        updateLoadingProgress(100, "Ready");
-        hideLoadingOverlay();
-      }
-    }, loadingFallbackDelayMs);
 
     return viewer;
   } catch (error) {
+    stopTerrainLoading?.();
+    hideLoadingOverlay();
     console.error(error);
     setStatus("Failed to initialize bathymetry. Check the Cesium load and token settings.", true);
-    throw error;
   }
 }
 
